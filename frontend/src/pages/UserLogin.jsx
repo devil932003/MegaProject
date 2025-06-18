@@ -1,8 +1,9 @@
-import React, { useState, useContext } from 'react'
-import { Link } from 'react-router-dom'
-import { UserDataContext } from '../context/UserContext'
-import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import { useContext, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { toast } from 'react-toastify'
+import { SocketContext } from '../context/SocketContext'; // <-- Import socket context
+import { UserDataContext } from '../context/UserContext'
 
 const UserLogin = () => {
   const [ email, setEmail ] = useState('')
@@ -10,9 +11,8 @@ const UserLogin = () => {
   const [ userData, setUserData ] = useState({})
 
   const { user, setUser } = useContext(UserDataContext)
+  const { socket } = useContext(SocketContext) // <-- Use socket context
   const navigate = useNavigate()
-
-
 
   const submitHandler = async (e) => {
     e.preventDefault();
@@ -22,15 +22,23 @@ const UserLogin = () => {
       password: password
     }
 
-    const response = await axios.post(`${import.meta.env.VITE_BASE_URL}/users/login`, userData)
+    try {
+      const response = await axios.post(`${import.meta.env.VITE_BASE_URL}/users/login`, userData)
 
-    if (response.status === 200) {
-      const data = response.data
-      setUser(data.user)
-      localStorage.setItem('token', data.token)
-      navigate('/home')
+      if (response.status === 200) {
+        const data = response.data
+        setUser(data.user)
+        localStorage.setItem('token', data.token)
+        // Emit join event after login
+        socket.emit('join', { userType: 'user', userId: data.user._id })
+        navigate('/home')
+      }
+    } catch (err) {
+      toast.error(
+        err?.response?.data?.message ||
+        'Login failed. Please check your credentials and try again.'
+      )
     }
-
 
     setEmail('')
     setPassword('')
@@ -41,9 +49,7 @@ const UserLogin = () => {
       <div>
         <img className='w-16 mb-10' src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQYQy-OIkA6In0fTvVwZADPmFFibjmszu2A0g&s" alt="" />
 
-        <form onSubmit={(e) => {
-          submitHandler(e)
-        }}>
+        <form onSubmit={submitHandler}>
           <h3 className='text-lg font-medium mb-2'>What's your email</h3>
           <input
             required
